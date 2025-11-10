@@ -25,3 +25,6 @@
       
       #"Invalid ID or password"
       #"Email already registered" 
+class auth:
+    def __init__(self):
+        pass
