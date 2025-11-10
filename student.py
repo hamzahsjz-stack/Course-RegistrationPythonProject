@@ -42,4 +42,4 @@ class Student:
         return total
     def add_to_transcript(self,course_code):
         if course_code not in self.transcript:
-            self.transcript.append(course_code)
+            self.transcript.append(course_code)           
