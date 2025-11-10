@@ -1,3 +1,4 @@
+
 # TODO:
 #Purpose:
 #Let administrators define and manage all course data.
@@ -32,6 +33,7 @@
 
 #"Course code COE310 already exists"
 #"Prerequisite COE200 not found"
+from student import Student
 class Course:
     def __init__(self,code,name,credits,hours,lecture_hours,lab_hours,max_capacity,prerequisites=None):
         self.code = code
