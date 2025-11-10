@@ -1,6 +1,6 @@
 ## TO DO: Build the app frontend
     #GUI Design (PyQt5 or PyQt6)
-    
+    الاتهاد ما تفوزيي
     #You’ll make a GUI with:
     
     #Login screen
