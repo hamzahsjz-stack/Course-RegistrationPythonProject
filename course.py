@@ -36,41 +36,42 @@
 import sqlite3
 from student import Student
 class Course:
-    def __init__(self,code,name,credits,hours,lecture_hours,lab_hours,max_capacity, schedule, prerequisites=None):
+    def __init__(self,code,name,credits,lecture_hours,lab_hours,max_capacity, schedule, prerequisites=None):
         self.code = code
         self.name = name
         self.credits = credits
-        self.hours = hours
         self.lecture_hours = lecture_hours
         self.lab_hours = lab_hours
         self.max_capacity = max_capacity
         self.schedule = schedule
         self.prerequisites = prerequisites or []
-        self.enrolled_Students = 0
+        self.enrolled_students = 0
     def isFull(self):
         #check if the course has the max enrolled students if true return true if false return false
-        return self.enrolled_Students >= self.max_capacity
+        return self.enrolled_students >= self.max_capacity
     def CheckPrerequisites(self, student_transcript):
         # """Return True if all prerequisites are met.""" 
         return all(p in student_transcript for p in self.prerequisites)
     #--------------------
     # Database operations
     #--------------------
+    @staticmethod
     def connect():
-        conn = sqlite3.connect("Course.db")
+        conn = sqlite3.connect("courses.db")
         conn.row_factory = sqlite3.Row
         return conn
+    @classmethod
     def create_table(cls):
         """Create the course tables if it doesn't exist"""
         conn = cls.connect()
         cursor = conn.cursor()
         cursor.execute("""
-                CREATE TABLE IF NOT EXISTS course(
+                CREATE TABLE IF NOT EXISTS courses(
                        code TEXT PRIMARY KEY,
                        name TEXT,
                        credits INTEGER,
                        lecture_hours INTEGER,
-                       lab_hours INTEGER
+                       lab_hours INTEGER,
                        max_capacity INTEGER,
                        schedule TEXT,
                        prerequisites TEXT,
@@ -94,6 +95,7 @@ class Course:
         ))
         conn.commit()
         conn.close()
+    @classmethod
     def get(cls, code):
         """Retrieve a course by its code."""
         conn = cls.connect()
@@ -106,8 +108,10 @@ class Course:
             return cls(row["code"], row["name"], row["credits"],
                        row["lecture_hours"], row["lab_hours"],
                        row["max_capacity"], row["schedule"], prereqs,
-                       row["enrolled_students"])
+                       )
         return None
+
+    @classmethod
     def all(cls):
         """Return a list of all courses."""
         conn = cls.connect()
@@ -121,8 +125,9 @@ class Course:
             courses.append(cls(row["code"], row["name"], row["credits"],
                                row["lecture_hours"], row["lab_hours"],
                                row["max_capacity"], row["schedule"], prereqs,
-                               row["enrolled_students"]))
+                               ))
         return courses
+    @classmethod
     def delete(cls, code):
         """Delete a course by its code."""
         conn = cls.connect()
@@ -130,3 +135,4 @@ class Course:
         cursor.execute("DELETE FROM courses WHERE code=?", (code,))
         conn.commit()
         conn.close()
+Course.create_table()
