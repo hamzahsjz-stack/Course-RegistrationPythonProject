@@ -21,9 +21,10 @@
       #users
 
 
-first code :
 
-      from flask import Flask, render_template_string, request, redirect, url_for, session
+
+
+from flask import Flask, render_template_string, request, redirect, url_for, session
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 import sqlite3
@@ -401,16 +402,4 @@ def reset_password():
 if __name__ == '__main__':
     app.run(debug=True)
 
-      #Database Table:
-      
-      #users
-
-
-first code 
-
-      
-      #Example errors:
-      
-      #"Invalid ID or password"
-      #"Email already registered" 
 
