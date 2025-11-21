@@ -1,14 +1,14 @@
-
+#Student.py
 import sqlite3
-
 class Student:
-    def __init__(self, student_id, name, last_name, email, program, level, transcript=None):
+    def __init__(self, student_id, name, last_name, email, program, level, registered_courses=None , transcript=None):
         self.student_id = student_id
         self.name = name
         self.last_name = last_name
         self.email = email
         self.program = program
         self.level = level
+        self.registered_courses = registered_courses or []
         self.transcript = transcript or []   # list of course codes
 
     # -----------------------------
@@ -36,6 +36,7 @@ class Student:
                 email      TEXT NOT NULL UNIQUE,
                 program    TEXT NOT NULL,
                 level      INTEGER NOT NULL,
+                registered_courses TEXT,
                 transcript TEXT
             );
         """)
@@ -52,11 +53,11 @@ class Student:
 
         cur.execute("""
             INSERT OR REPLACE INTO students
-            (student_id, name, last_name, email, program, level, transcript)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (student_id, name, last_name, email, program, level, registered_courses, transcript)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             self.student_id, self.name, self.last_name,
-            self.email, self.program, self.level,
+            self.email, self.program, self.level, ",".join(self.registered_courses),
             ",".join(self.transcript)
         ))
 
@@ -78,6 +79,7 @@ class Student:
 
         if row:
             transcript_list = row["transcript"].split(",") if row["transcript"] else []
+            registered_list = row["registered_courses"].split(",") if row["registered_courses"] else []
             return Student(
                 row["student_id"],
                 row["name"],
@@ -85,6 +87,7 @@ class Student:
                 row["email"],
                 row["program"],
                 row["level"],
+                registered_list,
                 transcript_list
             )
 
@@ -100,7 +103,7 @@ class Student:
         cur.execute("DELETE FROM students WHERE student_id = ?", (student_id,))
         conn.commit()
         conn.close()
-
+   
     # -----------------------------
     # GET ALL STUDENTS
     # -----------------------------
@@ -117,6 +120,7 @@ class Student:
         students = []
         for row in rows:
             transcript_list = row["transcript"].split(",") if row["transcript"] else []
+            registered_list = row["registered_courses"].split(",") if row["registered_courses"] else []
             students.append(
                 Student(
                     row["student_id"],
@@ -125,11 +129,27 @@ class Student:
                     row["email"],
                     row["program"],
                     row["level"],
+                    registered_list,
                     transcript_list
                 )
             )
 
         return students
+    def add_completed_course(self, code):
+        if code not in self.transcript:
+            self.transcript.append(code)
+            self.save()
+
+    def add_registered_course(self, code):
+        if code not in self.registered_courses:
+            self.registered_courses.append(code)
+            self.save()
+
+    def remove_registered_course(self, code):
+        if code in self.registered_courses:
+            self.registered_courses.remove(code)
+            self.save()
+
 
 
 # Auto-create table like course.py
