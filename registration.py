@@ -14,18 +14,8 @@ def register_student_to_course(student_id, course_code):
     if course_code in student.registered_courses:
         return False, "Already registered in this course."
 
-    # -------------------------
-    # Check for schedule conflicts
-    # -------------------------
-    for code in student.transcript:
-        other_course = Course.get(code)
-        if other_course and other_course.schedule == course.schedule:
-            return False, f"Schedule conflict with {other_course.code}: {other_course.name}"
-
-    # Check prerequisites
-    if not course.CheckPrerequisites(student.transcript):
-        return False, "Prerequisites not satisfied."
-
+    if getattr(course,"schedule","") == "TBA":
+        return False, "Cannot register due to there not being a schedule yet"
     # Check max capacity
     if course.isFull():
         return False, "Course is full."
@@ -33,9 +23,9 @@ def register_student_to_course(student_id, course_code):
     # Register student
     student.add_registered_course(course_code)
     student.save()
-    
+    course.add_student()
     course.save()
-
+    
     return True, f"Successfully registered for {course.code} - {course.name}"
 
 def unregister_student_from_course(student_id, course_code):
@@ -52,6 +42,8 @@ def unregister_student_from_course(student_id, course_code):
     
     # Remove from both records
     student.remove_registered_course(course_code)
-    course.remove_student(student_id)
+    course.remove_student()
+    student.save()
+    course.save()
 
     return True, f"{student.name} unregistered from {course.code}."
