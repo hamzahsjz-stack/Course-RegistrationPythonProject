@@ -1,19 +1,17 @@
 # registration.py
 from student import Student
 from course import Course
-from validation import validate_registration
 
 def register_student_to_course(student_id, course_code):
     student = Student.get(student_id)
     course = Course.get(course_code)
-
     if not student or not course:
         return False, "Student or course not found."
-
     # Check if already registered
     if course_code in student.registered_courses:
         return False, "Already registered in this course."
-
+    if student.program not in course.program:
+        return False, "Student cannot register to this course due to the course not being in the student's program"
     if getattr(course,"schedule","") == "TBA":
         return False, "Cannot register due to there not being a schedule yet"
     # Check max capacity
