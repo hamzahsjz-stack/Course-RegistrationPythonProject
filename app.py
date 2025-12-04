@@ -1,10 +1,9 @@
 # app.py
 import sys
 from PyQt5 import QtWidgets, QtCore, QtGui
-from datetime import datetime, time , timedelta
-import re
+import os
 from student import Student
-from course import Course
+from course import Course , bulk_import
 from auth import Auth
 from registration import register_student_to_course, unregister_student_from_course
 
@@ -61,6 +60,8 @@ class SignupDialog(QtWidgets.QDialog):
         self.setWindowTitle("Create Student Account")
         self.setGeometry(700, 350, 360, 420)
         layout = QtWidgets.QFormLayout(self)
+        font = QtGui.QFont("Segoe UI", 10)
+        self.setFont(font)
         self.username = QtWidgets.QLineEdit()
         self.password = QtWidgets.QLineEdit()
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
@@ -106,13 +107,16 @@ class SignupDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self,"failed", "Please enter a valid program : computer, power, biomedical, electronics")
             return
 
-        # Prefer Auth.create_student_account if available
+        # Check if create_student_account function is callable
         create_fn = getattr(Auth, "create_student_account", None)
         if callable(create_fn):
+            # add the input into the create_student_account function which updates and saves the information into two databases
             ok, msg = Auth.create_student_account(uname, pw, first, last, email, program, level)
         self.message_label.setText(msg)
-        student = Student.get(uname)
+        if ok:
+            student = Student.get(uname)        
         if student:
+            # add courses to transcript depending on the level of the student
             lower_courses =[c.code for c in Course.all()
                             if getattr(c, "level", 0) < student.level
                             and (student.program in getattr(c,"program", ""))]
@@ -121,7 +125,6 @@ class SignupDialog(QtWidgets.QDialog):
         if ok:
             QtWidgets.QMessageBox.information(self, "Success", msg)
             self.accept()
-
 
 # --------------------------
 # Login Window
@@ -132,7 +135,8 @@ class LoginWindow(QtWidgets.QWidget):
         self.setWindowTitle("Login")
         self.setGeometry(600, 300, 320, 160)
         layout = QtWidgets.QVBoxLayout(self)
-
+        font = QtGui.QFont("Segoe UI", 10)
+        self.setFont(font)
         self.username_input = QtWidgets.QLineEdit()
         self.username_input.setPlaceholderText("Username")
         layout.addWidget(self.username_input)
@@ -184,16 +188,15 @@ class LoginWindow(QtWidgets.QWidget):
     def signup(self):
         dialog = SignupDialog(self)
         dialog.exec_()
-# --------------------------
 # Add Course Dialog (Admin)
-# --------------------------
 class AddCourseDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add New Course")
         self.setGeometry(600, 300, 420, 320)
         layout = QtWidgets.QFormLayout(self)
-
+        font = QtGui.QFont("Segoe UI", 10)
+        self.setFont(font)
         self.code = QtWidgets.QLineEdit() 
         self.name = QtWidgets.QLineEdit()
         self.credits = QtWidgets.QSpinBox()
@@ -252,9 +255,7 @@ class AddCourseDialog(QtWidgets.QDialog):
             self.accept()
         except Exception as e:
             print(e)
-# --------------------------
 # edit Course Dialog (Admin)
-# --------------------------
 class EditCourseDialog(QtWidgets.QDialog):
     def __init__(self, course_code, parent = None):   
             super().__init__(parent)
@@ -262,7 +263,8 @@ class EditCourseDialog(QtWidgets.QDialog):
             self.setGeometry(600,300,420,320)
             self.course_code = course_code
             layout = QtWidgets.QFormLayout(self)
-
+            font = QtGui.QFont("Segoe UI", 10)
+            self.setFont(font)
             self.course = Course.get(course_code)
 
             if not self.course:
@@ -325,9 +327,7 @@ class EditCourseDialog(QtWidgets.QDialog):
                     self.accept()
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self, "Error", f"Failed to save changes: {e}")
-# --------------------------
 # Main Menu Window (Hub)
-# --------------------------
 class MainMenuWindow(QtWidgets.QMainWindow):
     def __init__(self, user):
         super().__init__()
@@ -335,11 +335,16 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         role = user.get("role", "student")
         self.setWindowTitle(f"Course Registration - {user.get('username')} ({role})")
         self.setGeometry(160, 80, 1000, 650)
-        sid = self.user.get("username")
-        student = Student.get(sid)
-
+        font = QtGui.QFont("Segoe UI", 10)
+        
+        self.setFont(font)
         self.central = QtWidgets.QStackedWidget()
         self.setCentralWidget(self.central)
+        self.setStyleSheet("""QPushButton {font-size: 14px;
+                                                        padding: 6px 40px;
+                                                        border-radius: 5px;
+                                                        background-color: #2d89ef;}
+                                          QPushButton:hover{background-color: #1e5fb4;}""")
         # Menu panel
         self.menu_panel = QtWidgets.QWidget()
         menu_layout = QtWidgets.QVBoxLayout(self.menu_panel)
@@ -347,6 +352,9 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         welcome_label.setAlignment(QtCore.Qt.AlignCenter)
         welcome_label.setStyleSheet("font-weight: bold; font-size: 16px;")
         menu_layout.addWidget(welcome_label)
+        menu_layout.setContentsMargins(15,15,15,15)
+        menu_layout.setSpacing(30)
+        menu_layout.setAlignment(QtCore.Qt.AlignCenter)
         # Buttons
         self.student_info_page = QtWidgets.QWidget()
         self.student_info_page_layout = QtWidgets.QVBoxLayout()
@@ -373,13 +381,10 @@ class MainMenuWindow(QtWidgets.QMainWindow):
             btn_admin = QtWidgets.QPushButton("Admin Options")
             btn_admin.clicked.connect(self.show_admin_options)
             menu_layout.addWidget(btn_admin)
-
         btn_logout = QtWidgets.QPushButton("Logout")
         btn_logout.clicked.connect(self.logout)
         menu_layout.addWidget(btn_logout)
-
-        self.central.addWidget(self.menu_panel)
-        
+        self.central.addWidget(self.menu_panel)   
         # Persistent admin widgets
         self.btn_add_course = QtWidgets.QPushButton("Add Course")
         self.btn_add_course.clicked.connect(self.open_add_course)
@@ -393,20 +398,15 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         self.btn_delete.clicked.connect(self.admin_delete_student)
         # Pages placeholders
         self.admin_page = QtWidgets.QWidget()
-
         for w in (self.student_info_page, self.all_courses_page, self.registration_page, self.admin_page):
             self.central.addWidget(w)
-
         # For registration table reference
         self.registration_table = None
     # --------------------------
     # Navigation pages
     # --------------------------
     def show_student_info(self):      
-        layout = self.student_info_page_layout
-        
-        if layout is None:
-            layout = QtWidgets.QVBoxLayout(self.student_info_page)
+        layout = self.student_info_page_layout     
         # clear previous layout contents
         self._clear_layout(layout)
         layout.addWidget(QtWidgets.QLabel("Student Information"))
@@ -437,9 +437,8 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         layout.addWidget(QtWidgets.QLabel("All Courses"))
         list_widget = QtWidgets.QListWidget()
         for c in Course.all():
-            list_widget.addItem(f"{c.code} | {c.name} | Credits: {getattr(c,'credits', '')} | Enrolled: {getattr(c,'enrolled_students', '')}/{getattr(c,'max_capacity', getattr(c,'maxcap', ''))} | Schedule: {getattr(c,'schedule','')} | Program:{getattr(c,'program','')} | Prereqs: {','.join(getattr(c,'prerequisites',[]) or [])}")
+            list_widget.addItem(f"{c.code} | {c.name} | Credits: {c.credits} | Enrolled: {c.enrolled_students}/{c.max_capacity} | Schedule: {getattr(c,'schedule','')} | Program:{getattr(c,'program','')} | Prereqs: {','.join(getattr(c,'prerequisites',[]) or [])}")
         layout.addWidget(list_widget)
-
         back_btn = QtWidgets.QPushButton("Back to Menu")
         back_btn.clicked.connect(lambda: self.central.setCurrentWidget(self.menu_panel))
         layout.addWidget(back_btn)
@@ -487,7 +486,7 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         for i, c in enumerate(valid_courses):
             
             prereq_text = ",".join(getattr(c, "prerequisites", []) or [])
-            maxcap = getattr(c, "max_capacity", getattr(c, "maxcap", getattr(c, "capacity", "")))
+            maxcap = getattr(c, "max_capacity", "")
             table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(c.code)))
             table.setItem(i, 1, QtWidgets.QTableWidgetItem(str(getattr(c, "name", ""))))
             table.setItem(i, 2, QtWidgets.QTableWidgetItem(prereq_text))
@@ -500,7 +499,7 @@ class MainMenuWindow(QtWidgets.QMainWindow):
             # Determine status
             status = "Available"
             if self.user.get("role") == "student":
-                # check registered (use registered_courses or transcript depending on your implementation)
+                # check registered (using registered_courses)
                 registered_list = getattr(student, "registered_courses", None)
                 if c.code in registered_list:
                     status = "Registered"
@@ -528,6 +527,7 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         if self.user.get("role") == "student": # only student can see his timetable 
             btn_hbox.addWidget(btn_timetable)
         btn_hbox.addWidget(btn_refresh)
+        btn_hbox.setSpacing(10)
         layout.addLayout(btn_hbox)
         # Connect buttons
         btn_reg.clicked.connect(self.handle_register_from_table)
@@ -546,27 +546,22 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout(self.admin_page)
         self._clear_layout(layout)
         layout.addWidget(QtWidgets.QLabel("Admin Options"))
-
         # Add Course button
         layout.addWidget(self.btn_add_course)
-
         # Edit Course by code
         hl_edit = QtWidgets.QHBoxLayout()
         hl_edit.addWidget(self.admin_edit_input)
         hl_edit.addWidget(self.btn_edit_course)
         layout.addLayout(hl_edit)
-
         # Delete student by student_id
         hl = QtWidgets.QHBoxLayout()        
         hl.addWidget(self.admin_delete_input)
         hl.addWidget(self.btn_delete)
         layout.addLayout(hl)
-
         # Back
         back_btn = QtWidgets.QPushButton("Back to Menu")
         back_btn.clicked.connect(lambda: self.central.setCurrentWidget(self.menu_panel))
         layout.addWidget(back_btn)
-
         self.central.setCurrentWidget(self.admin_page)
     def admin_edit_course(self):
         self.admin_edit_input.clearFocus()
@@ -599,29 +594,29 @@ class MainMenuWindow(QtWidgets.QMainWindow):
     # Handlers for table actions
     # --------------------------
     def handle_register_from_table(self):
-        row = self.registration_table.currentRow()
-        
+        row = self.registration_table.currentRow()  
+        # check if row is selected      
         if row < 0:
             QtWidgets.QMessageBox.warning(self, "Select", "Select a course row first.")
             return
+        # set the code that is returned to the row that is selected and coloumn 0
         code = self.registration_table.item(row, 0).text()
-        
         if self.user.get("role") == "student":
-            sid = self.user.get("username")
-            #refresh student information page        
+            sid = self.user.get("username")        
         else:
             sid, ok = QtWidgets.QInputDialog.getText(self, "Student ID", "Enter student ID to register:")
             if not ok or not sid:
                 return
-        # call registration function
+        # get student and course object
         student = Student.get(sid)
         course = Course.get(code)
+        # check if student has time conflict in his registered courses with the course schedule
         check, code = student_has_time_conflict(student,course)
         if check:
             QtWidgets.QMessageBox.warning(self, "Failed", f"Cannot register to {code} due to time conflict")
             return
         ok, msg = register_student_to_course(sid, course.code)
-        
+
         if ok and not check:
             QtWidgets.QMessageBox.information(self, "Registered", msg)
         
@@ -650,12 +645,11 @@ class MainMenuWindow(QtWidgets.QMainWindow):
                 return
         ok, msg = unregister_student_from_course(sid, code)
         if ok:
-            QtWidgets.QMessageBox.information(self, "Unregistered", msg)
-                
+            QtWidgets.QMessageBox.information(self, "Unregistered", msg)         
         else:
             QtWidgets.QMessageBox.warning(self, "Failed", msg)
-        self.show_registration()
-       
+        self.show_registration()  
+    # open timetable function  
     def show_full_timetable(self):
         sid = self.user.get("username")
         student = Student.get(sid)
@@ -663,9 +657,7 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         courses = [Course.get(c) for c in reg if Course.get(c)]
         dlg = TimetableWindow(courses, self)
         dlg.exec_()
-    # --------------------------
-    # small helpers
-    # --------------------------
+    # adding registered courses to transcript
     def add_course_to_transcript(self):
         sid = self.user.get("username")
         student = Student.get(sid)
@@ -689,7 +681,6 @@ class MainMenuWindow(QtWidgets.QMainWindow):
                 student.transcript = list((getattr(student, "transcript", []) + reg_courses))
                 student.save()
                 QtWidgets.QMessageBox.information(self,"Success", "Successfully completed courses and added to transcript")
-
     def open_edit_course(self, code):
         dlg = EditCourseDialog(code, self)
         if dlg.exec_() == QtWidgets.QDialog.Accepted:
@@ -703,8 +694,9 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         self.login = LoginWindow()
         self.login.show()
         self.close()
+    # remove widgets from layout 
     def _clear_layout(self, layout):
-        """Remove all widgets from a layout (helper)."""
+        """Remove all widgets from a layout."""
         if layout is None:
             return
         while layout.count():
@@ -717,12 +709,10 @@ class MainMenuWindow(QtWidgets.QMainWindow):
                 child = item.layout()
                 if child is not None:
                     self._clear_layout(child)
-# --------------------------
 # Schedule parser + Timetable UI
-# --------------------------
 DAY_TO_IDX = {"sun":0, "mon":1, "tue":2, "wed":3, "thu":4, "fri":5, "sat":6}
 IDX_TO_DAY = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
-
+# parsing or transforming string schedule to indexes and minutes
 def parse_schedule(schedule):
     """
     Flexible parser for schedules like:
@@ -730,24 +720,20 @@ def parse_schedule(schedule):
     - Sun-Tue-Thu-09:00-10:30
     - Mon-Wed-13:00-15:00   (NOT a range → just Mon and Wed)
     """
-
     if not schedule:
         return []
-
+    # if schedule = Sun-Tue-Thu-9:00-9:50 then parts = ["Sun", "Tue", "Thu", "9:00", "9:50"]
     parts = schedule.split("-")
-
+   
     # last two must be times
     if len(parts) < 3:
         return []
-
     start_time = parts[-2]
     end_time   = parts[-1]
-    day_parts  = parts[:-2]          # all before times
-
+    day_parts  = parts[:-2]      # all before times
     def to_minutes(t):
         h, m = map(int, t.split(":"))
         return h * 60 + m
-
     start_min = to_minutes(start_time)
     end_min   = to_minutes(end_time)
 
@@ -758,8 +744,8 @@ def parse_schedule(schedule):
         key = d.lower()
         if key in DAY_TO_IDX:
             results.append((DAY_TO_IDX[key], start_min, end_min))
-
     return results
+# Timetable gui class 
 class TimetableWindow(QtWidgets.QDialog):
     def __init__(self, courses, parent=None):
         super().__init__(parent)
@@ -770,7 +756,7 @@ class TimetableWindow(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
 
         title = QtWidgets.QLabel("Weekly Timetable")
-        title.setStyleSheet("font-size:18px; font-weight:bold; color:white;")
+        title.setStyleSheet("font-size:18px; font-weight:bold; color:black;")
         layout.addWidget(title)
 
         self.view = QtWidgets.QGraphicsView()
@@ -778,7 +764,6 @@ class TimetableWindow(QtWidgets.QDialog):
         self.view.setScene(self.scene)
         self.view.setBackgroundBrush(QtGui.QColor(30,30,30))
         layout.addWidget(self.view)
-
         btn = QtWidgets.QPushButton("Close")
         btn.clicked.connect(self.close)
         layout.addWidget(btn)
@@ -807,6 +792,7 @@ class TimetableWindow(QtWidgets.QDialog):
         # horizontal lines (hours)
         for hour in range(8, 24):
             y = top + (hour-8) * hour_h
+            print("Y:",y)
             scene.addLine(left, y, left+width, y, QtGui.QPen(QtGui.QColor(80,80,80)))
             label = scene.addText(f"{hour}:00")
             label.setPos(5, y-8)
@@ -815,13 +801,10 @@ class TimetableWindow(QtWidgets.QDialog):
         for c in self.courses:
             blocks = parse_schedule(c.schedule)
             for (day_i, start_min, end_min) in blocks:
-
                 if day_i > 4: 
-                    continue   # only Sun-Thu
-
+                    continue   # only Sunday to Thursday Not Friday and saturday
                 start_hour = start_min / 60
                 end_hour = end_min / 60
-
                 x = left + day_i * col_w + 5
                 y = top + (start_hour - 8) * hour_h
                 h = (end_hour - start_hour) * hour_h
@@ -851,7 +834,29 @@ if __name__ == "__main__":
             pw = "admin123"
         Auth.add_user("admin", pw, role="admin", student_id=None)
         print("Default admin created: username='admin', password='admin123'")
+    Course.create_table()  # ensure table exists
+    # Connect to DB
+    import sqlite3
+    conn = sqlite3.connect("courses.db")
+    cur = conn.cursor()
+
+    # Check if table is empty
+    cur.execute("SELECT COUNT(*) FROM courses")
+    count = cur.fetchone()[0]
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(BASE_DIR, "electrical_program_courses.csv")
+    # Import only once
+    if count == 0:       
+        bulk_import(csv_path)
+        print("Bulk import done (first time).")
+    else:
+        print("Courses already loaded.")
+
+    conn.close()
     app = QtWidgets.QApplication(sys.argv)
     login = LoginWindow()
+    login.show()
+    sys.exit(app.exec_())
+
     login.show()
     sys.exit(app.exec_())
