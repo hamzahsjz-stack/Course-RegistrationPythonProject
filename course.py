@@ -15,7 +15,7 @@ class Course:
         self.lab_hours = lab_hours
         self.max_capacity = max_capacity
         self.schedule = schedule
-        self.program = program               # <--- ONLY 1 PROGRAM
+        self.program = program               
         self.level = level
         self.prerequisites = prerequisites or []
         self.enrolled_students = enrolled_students
@@ -138,18 +138,10 @@ class Course:
 
     def remove_student(self):
         self.enrolled_students -= 1
-
-
-# --------------------
 # CSV Bulk Import Tool
-# --------------------
-if __name__ == "__main__":
-    Course.create_table()
-
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    csv_path = os.path.join(BASE_DIR, "electrical_program_courses.csv")
-
-    def bulk_import(csv_file):
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(BASE_DIR, "electrical_program_courses.csv")
+def bulk_import(csv_file):
         df = pd.read_csv(csv_file)
         df.columns = df.columns.str.strip()
 
@@ -209,5 +201,3 @@ if __name__ == "__main__":
             course.save()
 
         print(f"Merged import complete. {len(merged)} unique courses imported.")
-
-    bulk_import(csv_path)
