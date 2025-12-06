@@ -6,10 +6,7 @@ from student import Student
 from course import Course , bulk_import
 from auth import Auth
 from registration import register_student_to_course, unregister_student_from_course
-
-# --------------------------
 # Helper utilities (app-local)
-# --------------------------
 def normalizeCode(code):
     if not code:
         return ""
@@ -38,8 +35,6 @@ def schedules_conflict(s1, s2):
             if d1 == d2 and (start1 < end2 and start2 < end1):
                 return True
     return False
-
-
 def student_has_time_conflict(student, course):
     """
     Check if `course` conflicts with any course the student is registered in.
@@ -205,6 +200,8 @@ class AddCourseDialog(QtWidgets.QDialog):
         self.lecture.setRange(0, 10)
         self.lab = QtWidgets.QSpinBox()
         self.lab.setRange(0, 10)
+        self.level = QtWidgets.QSpinBox()
+        self.level.setRange(0, 10)
         self.max_capacity = QtWidgets.QSpinBox()
         self.max_capacity.setRange(1, 500)
         self.schedule = QtWidgets.QLineEdit()
@@ -219,6 +216,7 @@ class AddCourseDialog(QtWidgets.QDialog):
         layout.addRow("Credits:", self.credits)
         layout.addRow("Lecture hours:", self.lecture)
         layout.addRow("Lab hours:", self.lab)
+        layout.addRow("level:", self.level)
         layout.addRow("Max Capacity:", self.max_capacity)
         layout.addRow("Schedule:", self.schedule)
         layout.addRow("Program:", self.program)
@@ -236,20 +234,24 @@ class AddCourseDialog(QtWidgets.QDialog):
             lecture = int(self.lecture.value())
             lab = int(self.lab.value())
             maxcap = int(self.max_capacity.value())
+            level = int(self.level.value())
             schedule = self.schedule.text().strip()
             program = self.program.text().strip()
-            prereqs = [x.strip() for x in self.prereqs.text().split(",") if x.strip()]
+
+            # Convert comma-separated prereqs into string
+            prereqs_list = [x.strip() for x in self.prereqs.text().split(",") if x.strip()]
+            prereqs_str = ",".join(prereqs_list)
 
             if not code:
                 QtWidgets.QMessageBox.warning(self, "Validation", "Course code required.")
                 return
+
         except Exception as e:
             print(e)
+            return
 
-        # Try to use Course.save-like API: prefer Course(...) and .save() if available
         try:
-            # try constructor signature used earlier in your project
-            c = Course(code, name, credits, lecture, lab, maxcap, schedule, program, prereqs, 0)
+            c = Course(code, name, credits, lecture, lab, maxcap, schedule, program, level , prereqs_str, 0)
             c.save()
             QtWidgets.QMessageBox.information(self, "Success", f"Course {code} added.")
             self.accept()
@@ -304,7 +306,7 @@ class EditCourseDialog(QtWidgets.QDialog):
             layout.addRow("schedule:",self.schedule)
             layout.addRow("program:",self.program)
             layout.addRow("prerequisites:",self.prereqs)
-
+            layout.addRow("level", self.level)
             btn_save = QtWidgets.QPushButton("Save Changes")
             btn_save.clicked.connect(self.save_changes)
             layout.addWidget(btn_save)
@@ -792,7 +794,6 @@ class TimetableWindow(QtWidgets.QDialog):
         # horizontal lines (hours)
         for hour in range(8, 24):
             y = top + (hour-8) * hour_h
-            print("Y:",y)
             scene.addLine(left, y, left+width, y, QtGui.QPen(QtGui.QColor(80,80,80)))
             label = scene.addText(f"{hour}:00")
             label.setPos(5, y-8)
@@ -857,6 +858,5 @@ if __name__ == "__main__":
     login = LoginWindow()
     login.show()
     sys.exit(app.exec_())
-
     login.show()
     sys.exit(app.exec_())
