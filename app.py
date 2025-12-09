@@ -89,34 +89,60 @@ class SignupDialog(QtWidgets.QDialog):
         last = self.last.text().strip()
         email = self.email.text().strip()
         program = self.program.text().strip()
-        level = int(self.level.value())   
+        level = int(self.level.value())
 
-
+        # Basic validation
         if not uname or not pw or not first or not last:
             self.message_label.setText("Please fill username, password, first and last name.")
             return
-        
-        if  (program.lower() == "computer") or  (program.lower() == "power") or  (program.lower() == "electronics") or (program.lower() == "biomedical"):
-            pass
-        else:
-            QtWidgets.QMessageBox.warning(self,"failed", "Please enter a valid program : computer, power, biomedical, electronics")
+
+        valid_programs = ["computer", "power", "electronics", "biomedical"]
+        if program.lower() not in valid_programs:
+            QtWidgets.QMessageBox.warning(
+                self, "failed",
+                "Please enter a valid program: computer, power, biomedical, electronics"
+            )
             return
 
-        # Check if create_student_account function is callable
+        # Always initialize student variable
+        student = None
+
+        # Create student account
         create_fn = getattr(Auth, "create_student_account", None)
         if callable(create_fn):
-            # add the input into the create_student_account function which updates and saves the information into two databases
-            ok, msg = Auth.create_student_account(uname, pw, first, last, email, program, level)
+            ok, msg = Auth.create_student_account(
+                uname, pw, first, last, email, program, level
+            )
+        else:
+            ok, msg = False, "Account creation function not found."
+
+        # Show the message
         self.message_label.setText(msg)
+
+        # If account created successfully, fetch student
         if ok:
-            student = Student.get(uname)        
+            student = Student.get(uname)
+
+        # Add lower-level courses to transcript
         if student:
-            # add courses to transcript depending on the level of the student
-            lower_courses =[c.code for c in Course.all()
-                            if getattr(c, "level", 0) < student.level
-                            and (student.program in getattr(c,"program", ""))]
-            student.transcript = list((getattr(student, "transcript", []) + lower_courses))
+            lower_courses = []
+            for c in Course.all():
+
+                # Convert course level safely to int
+                try:
+                    course_lvl = int(getattr(c, "level", 0))
+                except:
+                    course_lvl = 0
+
+                if course_lvl < student.level and student.program in getattr(c, "program", ""):
+                    lower_courses.append(c.code)
+
+            # Update transcript
+            current_transcript = getattr(student, "transcript", [])
+            student.transcript = list(current_transcript + lower_courses)
             student.save()
+
+        # Show success popup
         if ok:
             QtWidgets.QMessageBox.information(self, "Success", msg)
             self.accept()
@@ -200,10 +226,10 @@ class AddCourseDialog(QtWidgets.QDialog):
         self.lecture.setRange(0, 10)
         self.lab = QtWidgets.QSpinBox()
         self.lab.setRange(0, 10)
-        self.level = QtWidgets.QSpinBox()
-        self.level.setRange(0, 10)
         self.max_capacity = QtWidgets.QSpinBox()
         self.max_capacity.setRange(1, 500)
+        self.level = QtWidgets.QSpinBox()
+        self.level.setRange(0, 10)
         self.schedule = QtWidgets.QLineEdit()
         self.program = QtWidgets.QLineEdit()
         self.prereqs = QtWidgets.QLineEdit()
@@ -216,11 +242,11 @@ class AddCourseDialog(QtWidgets.QDialog):
         layout.addRow("Credits:", self.credits)
         layout.addRow("Lecture hours:", self.lecture)
         layout.addRow("Lab hours:", self.lab)
-        layout.addRow("level:", self.level)
         layout.addRow("Max Capacity:", self.max_capacity)
         layout.addRow("Schedule:", self.schedule)
         layout.addRow("Program:", self.program)
         layout.addRow("Prerequisites:", self.prereqs)
+        layout.addRow("level:", self.level)
 
         add_btn = QtWidgets.QPushButton("Add Course")
         add_btn.clicked.connect(self.add_course)
@@ -251,7 +277,7 @@ class AddCourseDialog(QtWidgets.QDialog):
             return
 
         try:
-            c = Course(code, name, credits, lecture, lab, maxcap, schedule, program, level , prereqs_str, 0)
+            c = Course(code, name, credits, lecture, lab, maxcap, schedule, program, level, prereqs_str, 0)
             c.save()
             QtWidgets.QMessageBox.information(self, "Success", f"Course {code} added.")
             self.accept()
@@ -305,8 +331,10 @@ class EditCourseDialog(QtWidgets.QDialog):
             layout.addRow("max_capacity:",self.max_capacity)
             layout.addRow("schedule:",self.schedule)
             layout.addRow("program:",self.program)
+            layout.addRow("level:", self.level)
             layout.addRow("prerequisites:",self.prereqs)
-            layout.addRow("level", self.level)
+            
+
             btn_save = QtWidgets.QPushButton("Save Changes")
             btn_save.clicked.connect(self.save_changes)
             layout.addWidget(btn_save)
@@ -856,7 +884,5 @@ if __name__ == "__main__":
     conn.close()
     app = QtWidgets.QApplication(sys.argv)
     login = LoginWindow()
-    login.show()
-    sys.exit(app.exec_())
     login.show()
     sys.exit(app.exec_())
