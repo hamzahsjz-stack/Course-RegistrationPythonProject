@@ -645,16 +645,20 @@ class MainMenuWindow(QtWidgets.QMainWindow):
         if check:
             QtWidgets.QMessageBox.warning(self, "Failed", f"Cannot register to {code} due to time conflict")
             return
+        
+        if not student_has_prereqs(student,course):
+            QtWidgets.QMessageBox.warning(self,"failed", f"Cannot register due to missing prereqs")
+            return
+        
         ok, msg = register_student_to_course(sid, course.code)
 
-        if ok and student_has_prereqs(student,course):
+        if ok:
             QtWidgets.QMessageBox.information(self, "Registered", msg)
         
         elif getattr(course, "schedule", "") == "TBA":
             QtWidgets.QMessageBox.warning(self, "Failed", f"Cannot register due there not being a schedule yet")
             return
-        elif not student_has_prereqs(student,course):
-            QtWidgets.QMessageBox.warning(self,"failed", f"Cannot register due to missing prereqs")
+        
         else:
             QtWidgets.QMessageBox.warning(self, "Failed", msg)
         # refresh
@@ -886,3 +890,4 @@ if __name__ == "__main__":
     login = LoginWindow()
     login.show()
     sys.exit(app.exec_())
+
