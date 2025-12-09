@@ -647,7 +647,7 @@ class MainMenuWindow(QtWidgets.QMainWindow):
             return
         ok, msg = register_student_to_course(sid, course.code)
 
-        if ok and not check:
+        if ok and student_has_prereqs(student,course):
             QtWidgets.QMessageBox.information(self, "Registered", msg)
         
         elif getattr(course, "schedule", "") == "TBA":
