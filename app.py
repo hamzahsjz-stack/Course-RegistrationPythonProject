@@ -32,7 +32,7 @@ def schedules_conflict(s1, s2):
 
     for d1, start1, end1 in s1_parsed:
         for d2, start2, end2 in s2_parsed:
-            if d1 == d2 and (start1 < end2 and start2 < end1):
+            if d1 == d2 and (start1 <= end2 and start2 <= end1):
                 return True
     return False
 def student_has_time_conflict(student, course):
